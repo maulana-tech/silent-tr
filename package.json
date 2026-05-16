@@ -1,0 +1,28 @@
+{
+  "name": "birdeye-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeFi token radar, trending monitor, and whale tracker powered by Birdeye API",
+  "packageManager": "pnpm@10.29.2",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm --filter web test",
+    "lint": "pnpm --filter web lint",
+    "type-check": "pnpm --filter web type-check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "prettier": "^3.4.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "packages/web/**/*.{ts,tsx}": "bash -c 'pnpm --filter web type-check'"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}

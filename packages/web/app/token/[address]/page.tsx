@@ -252,10 +252,10 @@ export default function TokenDetailPage({
           </div>
           <div className="text-right">
             <p className="font-mono text-3xl font-bold text-white">
-              ${overview.price < 0.01 ? overview.price.toFixed(8) : overview.price.toFixed(4)}
+              ${overview.price ? (overview.price < 0.01 ? overview.price.toFixed(8) : overview.price.toFixed(4)) : "N/A"}
             </p>
             <p className={`mt-1 font-mono text-sm ${isUp ? "text-[--color-success]" : "text-[--color-danger]"}`}>
-              {isUp ? "+" : ""}{overview.priceChange24h.toFixed(2)}% (24h)
+              {isUp ? "+" : ""}{(overview.priceChange24h ?? 0).toFixed(2)}% (24h)
             </p>
           </div>
         </div>
@@ -302,7 +302,7 @@ export default function TokenDetailPage({
                 tick={{ fontSize: 10 }}
                 tickLine={false}
                 domain={["auto", "auto"]}
-                tickFormatter={(v) => `$${v < 0.01 ? v.toFixed(6) : v.toFixed(2)}`}
+                tickFormatter={(v) => v != null ? `$${v < 0.01 ? v.toFixed(6) : v.toFixed(2)}` : "$0"}
               />
               <Tooltip
                 contentStyle={{
@@ -339,8 +339,8 @@ export default function TokenDetailPage({
               <SecurityItem label="Honeypot" value={security.isHoneypot ? "YES ⚠️" : "No"} danger={security.isHoneypot} />
               <SecurityItem label="Mintable" value={security.mintable ? "YES ⚠️" : "No"} danger={security.mintable} />
               <SecurityItem label="Freezable" value={security.freezable ? "YES ⚠️" : "No"} danger={security.freezable} />
-              <SecurityItem label="Top 10 Holders" value={`${security.top10HolderPercent.toFixed(1)}%`} danger={security.top10HolderPercent > 60} />
-              <SecurityItem label="LP Locked" value={security.lpLocked > 0 ? `${security.lpLocked.toFixed(0)}%` : "No"} danger={security.lpLocked === 0} />
+              <SecurityItem label="Top 10 Holders" value={security.top10HolderPercent != null ? `${security.top10HolderPercent.toFixed(1)}%` : "N/A"} danger={security.top10HolderPercent > 60} />
+              <SecurityItem label="LP Locked" value={security.lpLocked != null && security.lpLocked > 0 ? `${security.lpLocked.toFixed(0)}%` : "No"} danger={security.lpLocked === 0} />
             </div>
           </div>
         )}
@@ -428,7 +428,8 @@ function SecurityItem({
   );
 }
 
-function fmtNum(n: number): string {
+function fmtNum(n: number | null | undefined): string {
+  if (n == null) return "N/A";
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + "B";
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";

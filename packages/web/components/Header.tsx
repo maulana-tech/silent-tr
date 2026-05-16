@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: "◈" },
+  { href: "/dashboard", label: "Dashboard", icon: "◈" },
   { href: "/radar", label: "Radar", icon: "◈" },
   { href: "/trending", label: "Trending", icon: "◈" },
   { href: "/whale-tracker", label: "Whale", icon: "◈" },
@@ -19,16 +19,16 @@ export function Header() {
     <header className="fixed top-0 left-0 z-50 flex h-14 w-full items-center border-b border-[--color-border] bg-[--color-bg]/90 px-6 backdrop-blur-xl">
       <Link href="/" className="mr-8 flex items-center gap-2 shrink-0">
         <span className="font-mono text-lg font-bold tracking-tight text-[--color-primary]">
-          BR
+          ST
         </span>
         <span className="hidden sm:block font-mono text-xs uppercase tracking-widest text-[--color-primary]">
-          Birdeye Radar
+          Silent Tracker
         </span>
       </Link>
 
       <nav className="flex items-center gap-0.5 overflow-x-auto">
         {NAV.map(({ href, label }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}

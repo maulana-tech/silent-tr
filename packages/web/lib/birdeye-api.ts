@@ -3,9 +3,10 @@ const WS_URL = "wss://public-api.birdeye.so/socket";
 
 // Rate limiting: simple in-memory cache
 const cache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 60_000; // 1 minute
-const MIN_REQUEST_INTERVAL = 500; // 500ms between requests
+const CACHE_TTL = 120_000; // 2 minutes for better caching
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests (more conservative)
 let lastRequestTime = 0;
+let requestQueue: Promise<any> = Promise.resolve();
 
 function apiKey(): string {
   // Try multiple sources — NEXT_PUBLIC_* for client, direct env for server
@@ -45,29 +46,52 @@ async function fetchBirdeye<T>(
     return cached.data as T;
   }
 
-  // Rate limit
-  await rateLimitDelay();
+  // Queue requests to prevent parallel rate limiting
+  return new Promise((resolve, reject) => {
+    requestQueue = requestQueue.then(async () => {
+      try {
+        // Rate limit
+        await rateLimitDelay();
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: headers(chain),
-    next: { revalidate: 60 } // Next.js cache for 60s
+        const res = await fetch(`${BASE_URL}${path}`, {
+          headers: headers(chain),
+          next: { revalidate: 120 } // Next.js cache for 2 minutes
+        });
+
+        if (!res.ok) {
+          // If rate limited or error, return cached data if available
+          if (cached && (res.status === 429 || res.status >= 500 || res.status === 401)) {
+            console.warn(`Birdeye API ${res.status} - using cached data`);
+            resolve(cached.data as T);
+            return;
+          }
+          throw new Error(`Birdeye API ${res.status}: ${res.statusText}`);
+        }
+
+        const json = await res.json();
+        if (!json.success) {
+          // Return cached data if API reports error but cache exists
+          if (cached) {
+            resolve(cached.data as T);
+            return;
+          }
+          throw new Error(json.message || "Birdeye API error");
+        }
+
+        // Cache the result
+        cache.set(cacheKey, { data: json.data, timestamp: Date.now() });
+        resolve(json.data as T);
+      } catch (error) {
+        // Return cached data on any error if available
+        if (cached) {
+          console.warn("Using cached data due to error:", error);
+          resolve(cached.data as T);
+        } else {
+          reject(error);
+        }
+      }
+    });
   });
-
-  if (!res.ok) {
-    // If rate limited or error, return cached data if available
-    if (cached && (res.status === 429 || res.status >= 500)) {
-      return cached.data as T;
-    }
-    throw new Error(`Birdeye API ${res.status}: ${res.statusText}`);
-  }
-
-  const json = await res.json();
-  if (!json.success) throw new Error(json.message || "Birdeye API error");
-
-  // Cache the result
-  cache.set(cacheKey, { data: json.data, timestamp: Date.now() });
-
-  return json.data as T;
 }
 
 /* ─────────── New Listings ─────────── */

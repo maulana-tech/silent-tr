@@ -30,29 +30,45 @@ export default function RadarPage() {
   const enriched = useQuery({
     queryKey: ["radar-enriched", chain, listingItems.map((t) => t.address).join(",")],
     queryFn: async () => {
-      const tokens = listingItems.slice(0, 20);
-      const results = await Promise.allSettled(
-        tokens.map(async (t) => {
-          const [security, overview] = await Promise.all([
-            getTokenSecurity(t.address, chain).catch(() => null),
-            getTokenOverview(t.address, chain).catch(() => null),
-          ]);
-          return { ...t, security, overview };
-        }),
-      );
-      type TokenEnriched = (typeof tokens)[number] & {
-        security: { isHoneypot: boolean; top10HolderPercent: number } | null;
-        overview: { price: number; priceChange24h: number; volume24h: number } | null;
-      };
-      return results
-        .filter((r) => r.status === "fulfilled")
-        .map((r) => (r as PromiseFulfilledResult<TokenEnriched>).value);
+      const tokens = listingItems.slice(0, 15); // Reduce to 15 to avoid rate limits
+
+      // Process sequentially to avoid parallel rate limiting
+      const enrichedTokens = [];
+      for (const t of tokens) {
+        try {
+          // Only fetch overview, skip security (requires premium plan)
+          const overview = await getTokenOverview(t.address, chain).catch(() => null);
+          enrichedTokens.push({
+            ...t,
+            security: null, // Disabled to prevent 401/429
+            overview
+          });
+          // Small delay between requests
+          await new Promise(r => setTimeout(r, 100));
+        } catch (e) {
+          console.error("Failed to enrich token:", e);
+        }
+      }
+
+      return enrichedTokens;
     },
     enabled: listingItems.length > 0,
+    staleTime: 120_000, // 2 minutes
+    refetchInterval: 180_000, // 3 minutes
   });
 
-  let displayTokens = enriched.data ?? [];
-  if (hideHoneypot) displayTokens = displayTokens.filter((t) => !t.security?.isHoneypot);
+  type EnrichedToken = {
+    address: string;
+    name: string;
+    symbol: string;
+    liquidity: number;
+    security: { isHoneypot: boolean; top10HolderPercent: number } | null;
+    overview: { price: number; priceChange24h: number; volume24h: number } | null;
+  };
+
+  let displayTokens = (enriched.data ?? []) as EnrichedToken[];
+  // Honeypot filter disabled since security data is not available
+  // if (hideHoneypot) displayTokens = displayTokens.filter((t) => !t.security?.isHoneypot);
 
   return (
     <AppShell>

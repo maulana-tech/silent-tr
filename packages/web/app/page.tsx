@@ -38,16 +38,15 @@ export default function HomePage() {
   const securityQueries = useQuery({
     queryKey: ["listings-security", listingItems.map((t) => t.address).join(",")],
     queryFn: async () => {
-      const results = await Promise.allSettled(
-        listingItems.slice(0, 5).map((t) => getTokenSecurity(t.address, CHAIN)),
-      );
-      return results.map((r) =>
-        r.status === "fulfilled"
-          ? r.value
-          : ({ isHoneypot: false, top10HolderPercent: 0 } as const),
-      );
+      // Disable security checks to avoid 429/401 errors
+      // Security endpoint requires premium Birdeye plan
+      return listingItems.slice(0, 5).map(() => ({
+        isHoneypot: false,
+        top10HolderPercent: 0
+      }));
     },
-    enabled: listingItems.length > 0,
+    enabled: false, // Disabled to prevent rate limiting
+    staleTime: 300_000,
   });
   const securityData = securityQueries.data ?? [];
 
@@ -56,9 +55,11 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const ws = createBirdeyeWs(onWsMessage);
-    if (ws) ws.subscribe("SUBSCRIBE_TOKEN_NEW_LISTING" as WsChannel, { chain: CHAIN });
-    return () => ws?.close();
+    // WebSocket disabled to reduce API load - REST data is sufficient
+    // Uncomment if you have premium Birdeye plan with WebSocket access
+    // const ws = createBirdeyeWs(onWsMessage);
+    // if (ws) ws.subscribe("SUBSCRIBE_TOKEN_NEW_LISTING" as WsChannel, { chain: CHAIN });
+    // return () => ws?.close();
   }, [onWsMessage]);
 
   const avgChange = trendingItems.length

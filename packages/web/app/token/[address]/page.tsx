@@ -23,22 +23,31 @@ export default function TokenDetailPage({
   const chain = searchParams.get("chain") || "ethereum";
   const [timeRange, setTimeRange] = useState<"1H" | "4H" | "1D">("4H");
 
-  const { data: overview, isLoading: overviewLoading } = useQuery({
-    queryKey: ["token-overview", params.address, chain],
-    queryFn: () => getTokenOverview(params.address, chain),
+  // Validate address exists
+  const address = params.address;
+  const isValidAddress = Boolean(address && address !== "undefined" && address.length > 10);
+
+  const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({
+    queryKey: ["token-overview", address, chain],
+    queryFn: () => getTokenOverview(address, chain),
+    enabled: isValidAddress,
     staleTime: 30_000,
+    retry: 1,
   });
 
   const { data: security, isLoading: securityLoading } = useQuery({
-    queryKey: ["token-security", params.address, chain],
-    queryFn: () => getTokenSecurity(params.address, chain),
-    staleTime: 300_000, // 5 minutes
+    queryKey: ["token-security", address, chain],
+    queryFn: () => getTokenSecurity(address, chain),
+    enabled: false, // Disabled - requires premium Birdeye plan
+    staleTime: 300_000,
   });
 
   const { data: txs } = useQuery({
-    queryKey: ["token-txs", params.address, chain],
-    queryFn: () => getTokenTxs(params.address, 20, chain),
+    queryKey: ["token-txs", address, chain],
+    queryFn: () => getTokenTxs(address, 20, chain),
+    enabled: isValidAddress && !!overview,
     staleTime: 30_000,
+    retry: 1,
   });
 
   const timeRangeConfig = useMemo(() => {
@@ -51,20 +60,21 @@ export default function TokenDetailPage({
   }, [timeRange]);
 
   const { data: ohlcv } = useQuery({
-    queryKey: ["token-ohlcv", params.address, chain, timeRange],
-    queryFn: () => getOHLCV(params.address, timeRangeConfig.type, timeRangeConfig.from, timeRangeConfig.to, chain),
-    enabled: !!overview,
+    queryKey: ["token-ohlcv", address, chain, timeRange],
+    queryFn: () => getOHLCV(address, timeRangeConfig.type, timeRangeConfig.from, timeRangeConfig.to, chain),
+    enabled: isValidAddress && !!overview,
     staleTime: 60_000,
+    retry: 1,
   });
 
   const { data: analysis, isLoading: analysisLoading } = useQuery({
-    queryKey: ["token-analysis", params.address, chain],
+    queryKey: ["token-analysis", address, chain],
     queryFn: async () => {
       if (!overview) return null;
       return analyzeToken({
         name: overview.name,
         symbol: overview.symbol,
-        address: params.address,
+        address: address,
         price: overview.price,
         liquidity: overview.liquidity,
         volume24h: overview.volume24h,
@@ -72,8 +82,9 @@ export default function TokenDetailPage({
         security: security ?? undefined,
       });
     },
-    enabled: !!overview,
-    staleTime: 300_000, // 5 minutes
+    enabled: isValidAddress && !!overview,
+    staleTime: 300_000,
+    retry: 1,
   });
 
   const chartData = useMemo(() => {
@@ -85,7 +96,21 @@ export default function TokenDetailPage({
     }));
   }, [ohlcv]);
 
-  if (overviewLoading || securityLoading) {
+  // Early return for invalid address
+  if (!isValidAddress) {
+    return (
+      <AppShell>
+        <div className="glass-card rounded p-8 text-center">
+          <p className="font-mono text-sm text-red-400">Invalid token address</p>
+          <button onClick={() => router.back()} className="btn-primary mt-4 rounded px-6 py-2">
+            Go Back
+          </button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (overviewLoading) {
     return (
       <AppShell>
         <div className="glass-card rounded p-8 text-center">
@@ -100,7 +125,12 @@ export default function TokenDetailPage({
     return (
       <AppShell>
         <div className="glass-card rounded p-8 text-center">
-          <p className="font-mono text-sm text-red-400">Token not found</p>
+          <p className="font-mono text-sm text-red-400">
+            {overviewError ? "Failed to load token data" : "Token not found"}
+          </p>
+          <p className="mt-2 font-mono text-xs text-zinc-600 break-all">
+            Address: {address}
+          </p>
           <button onClick={() => router.back()} className="btn-primary mt-4 rounded px-6 py-2">
             Go Back
           </button>
@@ -127,7 +157,7 @@ export default function TokenDetailPage({
           <div>
             <h1 className="text-2xl font-bold text-white">{overview.name}</h1>
             <p className="mt-1 font-mono text-sm uppercase text-zinc-500">{overview.symbol}</p>
-            <p className="mt-2 font-mono text-[10px] text-zinc-600 break-all">{params.address}</p>
+            <p className="mt-2 font-mono text-[10px] text-zinc-600 break-all">{address}</p>
           </div>
           <div className="text-right">
             <p className="font-mono text-3xl font-bold text-white">

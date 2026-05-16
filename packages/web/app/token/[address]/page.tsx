@@ -25,7 +25,20 @@ export default function TokenDetailPage({
 
   // Validate address exists
   const address = params.address;
-  const isValidAddress = Boolean(address && address !== "undefined" && address.length > 10);
+  // Basic validation: address exists, not "undefined" string, and looks like hex address
+  const isValidAddress = Boolean(
+    address &&
+    typeof address === "string" &&
+    address !== "undefined" &&
+    address !== "null" &&
+    address.length >= 20 && // Minimum reasonable address length
+    (address.startsWith("0x") || address.length > 30) // Ethereum or Solana address
+  );
+
+  // Debug logging (will be visible in browser console)
+  if (typeof window !== "undefined") {
+    console.log("Token Detail Page - Address:", address, "Valid:", isValidAddress, "Length:", address?.length);
+  }
 
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ["token-overview", address, chain],

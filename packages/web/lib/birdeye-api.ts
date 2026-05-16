@@ -5,6 +5,7 @@ const WS_URL = "wss://public-api.birdeye.so/socket";
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 120_000; // 2 minutes for better caching
 const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests (more conservative)
+const REQUEST_TIMEOUT = 10000; // 10 second timeout per request
 let lastRequestTime = 0;
 let requestQueue: Promise<any> = Promise.resolve();
 
@@ -48,6 +49,16 @@ async function fetchBirdeye<T>(
 
   // Queue requests to prevent parallel rate limiting
   return new Promise((resolve, reject) => {
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      if (cached) {
+        console.warn("Request timeout - using cached data");
+        resolve(cached.data as T);
+      } else {
+        reject(new Error("Request timeout"));
+      }
+    }, REQUEST_TIMEOUT);
+
     requestQueue = requestQueue.then(async () => {
       try {
         // Rate limit
@@ -55,7 +66,8 @@ async function fetchBirdeye<T>(
 
         const res = await fetch(`${BASE_URL}${path}`, {
           headers: headers(chain),
-          next: { revalidate: 120 } // Next.js cache for 2 minutes
+          next: { revalidate: 120 }, // Next.js cache for 2 minutes
+          signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined // 8s fetch timeout
         });
 
         if (!res.ok) {
@@ -80,8 +92,10 @@ async function fetchBirdeye<T>(
 
         // Cache the result
         cache.set(cacheKey, { data: json.data, timestamp: Date.now() });
+        clearTimeout(timeoutId);
         resolve(json.data as T);
       } catch (error) {
+        clearTimeout(timeoutId);
         // Return cached data on any error if available
         if (cached) {
           console.warn("Using cached data due to error:", error);
@@ -89,6 +103,14 @@ async function fetchBirdeye<T>(
         } else {
           reject(error);
         }
+      }
+    }).catch((error) => {
+      clearTimeout(timeoutId);
+      if (cached) {
+        console.warn("Queue error - using cached data");
+        resolve(cached.data as T);
+      } else {
+        reject(error);
       }
     });
   });

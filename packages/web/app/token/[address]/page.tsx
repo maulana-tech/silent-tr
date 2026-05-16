@@ -60,10 +60,20 @@ export default function TokenDetailPage({
 
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ["token-overview", address, chain],
-    queryFn: () => getTokenOverview(address, chain),
+    queryFn: async () => {
+      try {
+        const data = await getTokenOverview(address, chain);
+        console.log("Token overview loaded:", data.name);
+        return data;
+      } catch (error) {
+        console.error("Failed to load token overview:", error);
+        throw error;
+      }
+    },
     enabled: isValidAddress,
     staleTime: 30_000,
-    retry: 1,
+    retry: 2, // Retry twice
+    retryDelay: 2000, // Wait 2s between retries
   });
 
   const { data: security, isLoading: securityLoading } = useQuery({
@@ -152,24 +162,53 @@ export default function TokenDetailPage({
     );
   }
 
+  // Show error state if no data and not loading
   if (!overview) {
+    if (overviewLoading) {
+      return (
+        <AppShell>
+          <div className="glass-card rounded p-8 text-center">
+            <div className="mb-3 inline-block h-8 w-8 animate-spin rounded-full border-2 border-[--color-primary] border-t-transparent" />
+            <p className="font-mono text-xs text-zinc-500">Loading token data...</p>
+          </div>
+        </AppShell>
+      );
+    }
+
     return (
       <AppShell>
         <div className="glass-card rounded p-8 text-center">
           <p className="font-mono text-sm text-red-400">
-            {overviewError ? "Failed to load token data" : "Token not found"}
+            {overviewError ? "This page couldn't load" : "Token not found"}
           </p>
-          <p className="mt-2 font-mono text-xs text-zinc-600 break-all">
-            Address: {address}
+          <p className="mt-2 font-mono text-xs text-zinc-600">
+            {overviewError ? "Reload to try again, or go back." : `Address: ${address}`}
           </p>
-          <button onClick={() => router.back()} className="btn-primary mt-4 rounded px-6 py-2">
-            Go Back
-          </button>
+          {overviewError && (
+            <p className="mt-2 font-mono text-[10px] text-zinc-700">
+              Error: {String((overviewError as Error).message)}
+            </p>
+          )}
+          <div className="mt-4 flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary rounded px-6 py-2"
+            >
+              Reload
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="rounded border border-zinc-700 px-6 py-2 text-zinc-400 hover:border-zinc-500"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </AppShell>
     );
   }
 
+  // At this point, overview is guaranteed to exist
   const isUp = overview.priceChange24h >= 0;
 
   return (

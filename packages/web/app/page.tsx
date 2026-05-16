@@ -21,13 +21,15 @@ export default function HomePage() {
   const newListings = useQuery({
     queryKey: ["new-listings"],
     queryFn: () => getNewListings(CHAIN, 10),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000, // 2 minutes to reduce API calls
+    staleTime: 60_000, // Consider data fresh for 1 minute
   });
 
   const trending = useQuery({
     queryKey: ["trending"],
     queryFn: () => getTrendingTokens(CHAIN, "rank", "asc", 0, 10),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000, // 2 minutes
+    staleTime: 60_000,
   });
 
   const listingItems = newListings.data?.items ?? [];
@@ -98,12 +100,14 @@ export default function HomePage() {
             {listingItems.map((token, i) => (
               <TokenRow
                 key={token.address}
+                address={token.address}
                 name={token.name}
                 symbol={token.symbol}
                 price={0}
                 priceChange24h={0}
                 volume24h={token.liquidity}
                 liquidity={token.liquidity}
+                chain={CHAIN}
                 security={securityData[i]}
               />
             ))}
@@ -119,11 +123,13 @@ export default function HomePage() {
             {trendingItems.map((token) => (
               <TokenRow
                 key={token.address}
+                address={token.address}
                 name={token.name}
                 symbol={token.symbol}
                 price={token.price}
                 priceChange24h={token.price24hChangePercent}
                 volume24h={token.volume24hUSD}
+                chain={CHAIN}
                 rank={token.rank}
               />
             ))}

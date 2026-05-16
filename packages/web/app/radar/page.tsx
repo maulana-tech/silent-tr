@@ -94,12 +94,14 @@ export default function RadarPage() {
         {displayTokens.map((t) => (
           <TokenRow
             key={t.address}
+            address={t.address}
             name={t.name}
             symbol={t.symbol}
             price={t.overview?.price ?? 0}
             priceChange24h={t.overview?.priceChange24h ?? 0}
             volume24h={t.overview?.volume24h ?? t.liquidity}
             liquidity={t.liquidity}
+            chain={chain}
             security={
               t.security
                 ? { isHoneypot: t.security.isHoneypot, top10HolderPercent: t.security.top10HolderPercent }

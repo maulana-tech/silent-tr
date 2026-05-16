@@ -21,7 +21,8 @@ export default function TrendingPage() {
   const trending = useQuery({
     queryKey: ["trending-list", chain, sortBy],
     queryFn: () => getTrendingTokens(chain, sortBy, "asc", 0, 30),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000, // 2 minutes to reduce API calls
+    staleTime: 60_000,
   });
 
   const items = trending.data?.tokens ?? [];
@@ -89,11 +90,13 @@ export default function TrendingPage() {
         {items.map((t) => (
           <TokenRow
             key={t.address}
+            address={t.address}
             name={t.name}
             symbol={t.symbol}
             price={t.price}
             priceChange24h={t.price24hChangePercent}
             volume24h={t.volume24hUSD}
+            chain={chain}
             rank={t.rank}
           />
         ))}
@@ -105,11 +108,13 @@ export default function TrendingPage() {
           {sortedByVolume.slice(0, 10).map((t) => (
             <TokenRow
               key={t.address}
+              address={t.address}
               name={t.name}
               symbol={t.symbol}
               price={t.price}
               priceChange24h={t.price24hChangePercent}
               volume24h={t.volume24hUSD}
+              chain={chain}
             />
           ))}
         </div>

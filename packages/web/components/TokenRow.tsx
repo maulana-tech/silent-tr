@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const CHAIN_COLORS: Record<string, string> = {
   ethereum: "#627eea",
   arbitrum: "#2d374b",
@@ -8,6 +10,7 @@ const CHAIN_COLORS: Record<string, string> = {
 };
 
 export function TokenRow({
+  address,
   name,
   symbol,
   price,
@@ -18,6 +21,7 @@ export function TokenRow({
   rank,
   security,
 }: {
+  address: string;
   name: string;
   symbol: string;
   price: number;
@@ -30,7 +34,10 @@ export function TokenRow({
 }) {
   const isUp = priceChange24h >= 0;
   return (
-    <div className="glass-card flex items-center justify-between rounded px-4 py-3 transition-colors hover:bg-zinc-800/30">
+    <Link
+      href={`/token/${address}?chain=${chain}`}
+      className="glass-card flex items-center justify-between rounded px-4 py-3 transition-colors hover:bg-zinc-800/30 cursor-pointer"
+    >
       <div className="flex items-center gap-3 min-w-0">
         {rank && (
           <span className="font-mono text-xs text-zinc-600 w-5 shrink-0">
@@ -75,7 +82,7 @@ export function TokenRow({
           <SecurityBadge {...security} />
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 

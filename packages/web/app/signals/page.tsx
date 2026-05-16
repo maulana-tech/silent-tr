@@ -25,11 +25,15 @@ export default function SignalsPage() {
       const { getTopTradersWithFallback } = require("@/lib/whale-utils");
       return getTopTradersWithFallback(chain, 15);
     },
+    refetchInterval: 180_000, // 3 minutes
+    staleTime: 120_000,
   });
 
   const { data: hotTokens } = useQuery({
     queryKey: ["signals-hot", chain],
     queryFn: () => getTrendingTokens(chain, "volume24hUSD", "desc", 0, 5),
+    refetchInterval: 120_000, // 2 minutes
+    staleTime: 60_000,
   });
 
   const handleSignal = async (wallet: TopTrader) => {

@@ -2,6 +2,7 @@ const CHAINGPT_BASE = "https://api.chaingpt.org/chat/stream";
 
 function chaingptKey(): string {
   return (
+    process.env.NEXT_PUBLIC_CHAINGPT_API_KEY ||
     process.env.CHAINGPT_API_KEY ||
     ""
   );

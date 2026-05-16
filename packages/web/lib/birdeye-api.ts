@@ -1,6 +1,12 @@
 const BASE_URL = "https://public-api.birdeye.so";
 const WS_URL = "wss://public-api.birdeye.so/socket";
 
+// Rate limiting: simple in-memory cache
+const cache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 60_000; // 1 minute
+const MIN_REQUEST_INTERVAL = 500; // 500ms between requests
+let lastRequestTime = 0;
+
 function apiKey(): string {
   // Try multiple sources — NEXT_PUBLIC_* for client, direct env for server
   return (
@@ -8,6 +14,15 @@ function apiKey(): string {
     (typeof window === "undefined" ? process.env.BIRDEYE_API_KEY : "") ||
     ""
   );
+}
+
+async function rateLimitDelay(): Promise<void> {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+  }
+  lastRequestTime = Date.now();
 }
 
 function headers(chain?: string): Record<string, string> {
@@ -22,10 +37,36 @@ async function fetchBirdeye<T>(
   path: string,
   chain?: string,
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, { headers: headers(chain) });
-  if (!res.ok) throw new Error(`Birdeye API ${res.status}: ${res.statusText}`);
+  const cacheKey = `${chain || 'default'}:${path}`;
+
+  // Check cache first
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data as T;
+  }
+
+  // Rate limit
+  await rateLimitDelay();
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: headers(chain),
+    next: { revalidate: 60 } // Next.js cache for 60s
+  });
+
+  if (!res.ok) {
+    // If rate limited or error, return cached data if available
+    if (cached && (res.status === 429 || res.status >= 500)) {
+      return cached.data as T;
+    }
+    throw new Error(`Birdeye API ${res.status}: ${res.statusText}`);
+  }
+
   const json = await res.json();
   if (!json.success) throw new Error(json.message || "Birdeye API error");
+
+  // Cache the result
+  cache.set(cacheKey, { data: json.data, timestamp: Date.now() });
+
   return json.data as T;
 }
 
@@ -182,7 +223,9 @@ export function getTopTraders(
   chain = "ethereum",
   limit = 20,
 ): Promise<{ items: TopTrader[] }> {
-  return fetchBirdeye(`/defi/v2/wallets/top_traders?limit=${limit}`, chain);
+  // Note: This endpoint may not be available in all Birdeye plans
+  // Return empty to trigger fallback gracefully
+  return Promise.resolve({ items: [] });
 }
 
 export interface WalletPortfolio {

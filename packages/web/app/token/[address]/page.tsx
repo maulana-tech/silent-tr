@@ -26,10 +26,18 @@ export default function TokenDetailPage({
 
   // Handle async params in Next.js 16
   useEffect(() => {
+    let cancelled = false;
+
     Promise.resolve(params).then((resolvedParams) => {
-      setAddress(resolvedParams.address);
+      if (!cancelled) {
+        setAddress(resolvedParams.address);
+      }
     });
-  }, [params]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Empty deps - params is a Promise and shouldn't be in deps
 
   // Basic validation: address exists, not "undefined" string, and looks like hex address
   const isValidAddress = Boolean(

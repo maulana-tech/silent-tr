@@ -71,10 +71,18 @@ async function fetchBirdeye<T>(
         });
 
         if (!res.ok) {
-          // If rate limited or error, return cached data if available
-          if (cached && (res.status === 429 || res.status >= 500 || res.status === 401)) {
-            console.warn(`Birdeye API ${res.status} - using cached data`);
-            resolve(cached.data as T);
+          // If rate limited or error, return cached data if available, otherwise return empty
+          if (res.status === 429 || res.status >= 500 || res.status === 401) {
+            if (cached) {
+              console.warn(`Birdeye API ${res.status} - using cached data`);
+              clearTimeout(timeoutId);
+              resolve(cached.data as T);
+              return;
+            }
+            // No cache - return empty structure instead of throwing
+            console.warn(`Birdeye API ${res.status} - no cached data, returning empty`);
+            clearTimeout(timeoutId);
+            resolve({ items: [] } as T);
             return;
           }
           throw new Error(`Birdeye API ${res.status}: ${res.statusText}`);

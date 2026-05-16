@@ -40,7 +40,7 @@ export default function AnalyzePage() {
         priceChange24h: overview?.priceChange24h ?? 0,
         security: security ?? undefined,
       });
-      setResult({ overview, security, analysis });
+      setResult({ overview, security, analysis: analysis ?? "Analysis unavailable" });
     } catch (e) {
       setError(String(e));
     } finally {

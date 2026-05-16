@@ -14,9 +14,9 @@ export interface ChaingptResponse {
   message?: string;
 }
 
-export async function chat(question: string, context?: string): Promise<string> {
+export async function chat(question: string, context?: string): Promise<string | null> {
   const key = chaingptKey();
-  if (!key) return "ChainGPT API key not configured.";
+  if (!key) return null;
 
   const body: Record<string, string> = {
     model: "general_assistant",
@@ -35,11 +35,36 @@ export async function chat(question: string, context?: string): Promise<string> 
   });
 
   if (!res.ok) {
-    return `ChainGPT error (${res.status}). Check your credits.`;
+    const errorText = await res.text();
+    console.error(`ChainGPT API error: ${res.status}`, errorText.substring(0, 200));
+    return null; // Return null to trigger fallback prompt template
   }
 
-  const json: ChaingptResponse = await res.json();
-  return json.data?.bot ?? json.message ?? "No response from ChainGPT.";
+  try {
+    const text = await res.text();
+    console.log("ChainGPT raw response:", text.substring(0, 200));
+
+    // Try parsing as JSON first
+    try {
+      const json: ChaingptResponse = JSON.parse(text);
+      return json.data?.bot ?? json.message ?? "No response from ChainGPT.";
+    } catch {
+      // If not JSON, it might be plain text response
+      // For streaming endpoint, extract text between markers or return as-is
+      if (text.startsWith("[RISK LEVEL") || text.startsWith("MEDIUM") || text.startsWith("HIGH") || text.startsWith("LOW")) {
+        return text;
+      }
+      // Try to extract content from streaming format
+      const lines = text.split("\n").filter(l => l.trim());
+      if (lines.length > 0) {
+        return lines.join(" ");
+      }
+      return "Unable to parse ChainGPT response.";
+    }
+  } catch (error) {
+    console.error("ChainGPT response error:", error);
+    return null;
+  }
 }
 
 /* ─────────── Pre-built prompts ─────────── */
@@ -48,12 +73,12 @@ export async function analyzeToken(token: {
   name: string;
   symbol: string;
   address: string;
-  price: number;
-  liquidity: number;
-  volume24h: number;
-  priceChange24h: number;
+  price: number | null | undefined;
+  liquidity: number | null | undefined;
+  volume24h: number | null | undefined;
+  priceChange24h: number | null | undefined;
   security?: { isHoneypot: boolean; top10HolderPercent: number; lpLocked: number; mintable: boolean; freezable: boolean };
-}): Promise<string> {
+}): Promise<string | null> {
   const sec = token.security;
   const riskFlags: string[] = [];
   if (sec?.isHoneypot) riskFlags.push("⚠️ HONEYPOT DETECTED — do NOT interact");
@@ -65,14 +90,19 @@ export async function analyzeToken(token: {
 
   const flags = riskFlags.length ? `\n\n⚠️ RISK FLAGS:\n${riskFlags.join("\n")}` : "";
 
+  const price = token.price ?? 0;
+  const priceChange = token.priceChange24h ?? 0;
+  const volume = token.volume24h ?? 0;
+  const liquidity = token.liquidity ?? 0;
+
   return chat(
     `Analyze this DeFi token and give a concise institutional risk report (3-4 sentences):\n\n` +
     `${token.name} (${token.symbol})\n` +
     `Address: ${token.address}\n` +
-    `Price: $${fmt(token.price)}\n` +
-    `24h Change: ${token.priceChange24h >= 0 ? "+" : ""}${token.priceChange24h.toFixed(1)}%\n` +
-    `24h Volume: $${fmt(token.volume24h)}\n` +
-    `Liquidity: $${fmt(token.liquidity)}` +
+    `Price: $${fmt(price)}\n` +
+    `24h Change: ${priceChange >= 0 ? "+" : ""}${priceChange.toFixed(1)}%\n` +
+    `24h Volume: $${fmt(volume)}\n` +
+    `Liquidity: $${fmt(liquidity)}` +
     `${flags}\n\n` +
     `Format: [RISK LEVEL] — brief analysis. Use HIGH/MEDIUM/LOW.`,
     "You are a professional DeFi risk analyst. Be concise and factual.",
@@ -84,7 +114,7 @@ export async function generateTradeSignal(wallet: {
   pnl: number;
   winRate: number;
   totalTrades: number;
-}): Promise<string> {
+}): Promise<string | null> {
   const signal = wallet.pnl >= 0 ? "📈 BULLISH" : "📉 BEARISH";
   return chat(
     `Generate a copy-trade signal for this wallet. Be concise (2-3 sentences max):\n\n` +
@@ -102,7 +132,7 @@ export async function marketSentiment(tokens: Array<{
   symbol: string;
   priceChange24h: number;
   volume24h: number;
-}>): Promise<string> {
+}>): Promise<string | null> {
   const movers = tokens
     .filter((t) => Math.abs(t.priceChange24h) > 5)
     .sort((a, b) => Math.abs(b.priceChange24h) - Math.abs(a.priceChange24h))
@@ -124,7 +154,7 @@ export async function portfolioAdvice(holdings: Array<{
   name: string;
   symbol: string;
   valueUsd: number;
-}>): Promise<string> {
+}>): Promise<string | null> {
   const total = holdings.reduce((s, h) => s + h.valueUsd, 0);
   return chat(
     `Give portfolio diversification advice (3 sentences max, institutional tone):\n\n` +

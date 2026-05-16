@@ -42,7 +42,7 @@ export default function SignalsPage() {
     try {
       const { generateTradeSignal } = await import("@/lib/chaingpt");
       const signal = await generateTradeSignal(wallet);
-      setSelectedSignal({ addr: wallet.address, text: signal });
+      setSelectedSignal({ addr: wallet.address, text: signal ?? "Signal unavailable" });
     } finally {
       setLoadingSignal(null);
     }

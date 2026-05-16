@@ -47,7 +47,7 @@ export default function WhaleTrackerPage() {
     try {
       const { portfolioAdvice } = await import("@/lib/chaingpt");
       const advice = await portfolioAdvice(walletPortfolio.data.items);
-      setPortfolioAdviceText(advice);
+      setPortfolioAdviceText(advice ?? "Advice unavailable");
     } finally {
       setAdviceLoading(false);
     }

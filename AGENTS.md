@@ -1,8 +1,6 @@
-# AGENTS.md — Birdeye Token Discovery Dashboard
+# Birdeye Data Sprint 4 — Token Intelligence Dashboard
 
-Birdeye Data Sprint 4 competition (Mei 2026). Deadline: **16 Mei 2026**.
-
-Minimal 50 API calls, submit via Earn listing dengan nama proyek + GitHub + X post + endpoint description.
+**Deadline: 16 Mei 2026.** Birdeye Data Sprint 4 submission via Earn listing.
 
 ## Stack
 
@@ -10,31 +8,23 @@ Minimal 50 API calls, submit via Earn listing dengan nama proyek + GitHub + X po
 - Tailwind v4 (CSS config in `globals.css` via `@theme {}`)
 - `@tanstack/react-query` (data fetching)
 - `recharts` (charts — dashboard)
-- Birdeye REST API (`https://public-api.birdeye.so`) + WebSocket (`wss://public-api.birdeye.so/socket`)
+- Birdeye REST (`https://public-api.birdeye.so`) + WebSocket (`wss://public-api.birdeye.so/socket`)
 - Deploy: Vercel
 
-## Scripts
+## Pages
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Next.js dev (Turbopack) at localhost:3000 |
-| `pnpm build` | Production build |
-| `pnpm type-check` | `tsc --noEmit` |
-| `pnpm lint` | `next lint` |
-| `pnpm test` | `vitest run` |
-
-## Halaman
-
-| Route | Page | Endpoint Birdeye |
+| Route | Page | Birdeye Endpoints |
 |---|---|---|
-| `/` | Landing / Dashboard | new_listing + token_trending + WebSocket |
+| `/` | Dashboard | new_listing + token_trending + WebSocket |
 | `/radar` | New Token Radar | new_listing + token_security + token_overview |
 | `/trending` | Trending Monitor | token_trending |
 | `/whale-tracker` | Whale Tracker | top_traders + wallet/portfolio |
+| `/signals` | Trade Signals | token_trending + top_traders |
+| `/analyze` | Token Analyzer | token_overview + token_security |
 
 ## API Client
 
-`lib/birdeye-api.ts` — REST + WebSocket wrapper. Gunakan langsung via React Query.
+`lib/birdeye-api.ts` — REST + WebSocket wrapper. Use directly via React Query.
 
 ```ts
 const { data } = useQuery({
@@ -49,24 +39,16 @@ WebSocket: `createBirdeyeWs(onMessage)` → returns `{ subscribe(), close() }`.
 ## Env
 
 ```
-NEXT_PUBLIC_BIRDEYE_API_KEY=   # dari https://bds.birdeye.so
+NEXT_PUBLIC_BIRDEYE_API_KEY=   # from https://bds.birdeye.so
 ```
 
 ## CI
 
 Type-check → `vitest run --coverage` → `next build`. Single web-only job.
 
-## UI Conventions
-
-- Dark theme, matrix-green accents (`--color-primary: #00ff41`)
-- Tailwind v4: tokens in `globals.css`, use `var(--color-*)` in className
-- Material Symbols Outlined for icons
-- `glass-card`, `btn-primary`, `btn-secondary`, `grid-bg`, `scanline` utility classes
-- Server Components bisa fetching langsung, `"use client"` untuk React Query + state
-
-## Scoring criteria
+## Scoring Criteria
 
 1. Community Support (X engagement)
 2. Product Utility
-3. Technical Depth (use 3+ endpoints, combine REST + WebSocket)
+3. Technical Depth (3+ endpoints, REST + WebSocket)
 4. Presentation (clean repo, README, deployed URL)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import {
@@ -16,15 +16,21 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 export default function TokenDetailPage({
   params,
 }: {
-  params: { address: string };
+  params: Promise<{ address: string }> | { address: string };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chain = searchParams.get("chain") || "ethereum";
   const [timeRange, setTimeRange] = useState<"1H" | "4H" | "1D">("4H");
+  const [address, setAddress] = useState<string | null>(null);
 
-  // Validate address exists
-  const address = params.address;
+  // Handle async params in Next.js 16
+  useEffect(() => {
+    Promise.resolve(params).then((resolvedParams) => {
+      setAddress(resolvedParams.address);
+    });
+  }, [params]);
+
   // Basic validation: address exists, not "undefined" string, and looks like hex address
   const isValidAddress = Boolean(
     address &&
@@ -36,8 +42,20 @@ export default function TokenDetailPage({
   );
 
   // Debug logging (will be visible in browser console)
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && address) {
     console.log("Token Detail Page - Address:", address, "Valid:", isValidAddress, "Length:", address?.length);
+  }
+
+  // Loading state while params are being resolved
+  if (address === null) {
+    return (
+      <AppShell>
+        <div className="glass-card rounded p-8 text-center">
+          <div className="mb-3 inline-block h-8 w-8 animate-spin rounded-full border-2 border-[--color-primary] border-t-transparent" />
+          <p className="font-mono text-xs text-zinc-500">Loading...</p>
+        </div>
+      </AppShell>
+    );
   }
 
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({

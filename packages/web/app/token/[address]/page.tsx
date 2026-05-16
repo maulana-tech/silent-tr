@@ -54,21 +54,11 @@ export default function TokenDetailPage({
     console.log("Token Detail Page - Address:", address, "Valid:", isValidAddress, "Length:", address?.length);
   }
 
-  // Loading state while params are being resolved
-  if (address === null) {
-    return (
-      <AppShell>
-        <div className="glass-card rounded p-8 text-center">
-          <div className="mb-3 inline-block h-8 w-8 animate-spin rounded-full border-2 border-[--color-primary] border-t-transparent" />
-          <p className="font-mono text-xs text-zinc-500">Loading...</p>
-        </div>
-      </AppShell>
-    );
-  }
-
+  // IMPORTANT: All hooks must be called before any early returns!
   const { data: overview, isLoading: overviewLoading, error: overviewError } = useQuery({
     queryKey: ["token-overview", address, chain],
     queryFn: async () => {
+      if (!address) throw new Error("No address");
       try {
         const data = await getTokenOverview(address, chain);
         console.log("Token overview loaded:", data.name);
@@ -78,23 +68,29 @@ export default function TokenDetailPage({
         throw error;
       }
     },
-    enabled: isValidAddress,
+    enabled: !!address && isValidAddress, // Only run when address is set
     staleTime: 30_000,
-    retry: 2, // Retry twice
-    retryDelay: 2000, // Wait 2s between retries
+    retry: 2,
+    retryDelay: 2000,
   });
 
   const { data: security, isLoading: securityLoading } = useQuery({
     queryKey: ["token-security", address, chain],
-    queryFn: () => getTokenSecurity(address, chain),
+    queryFn: () => {
+      if (!address) throw new Error("No address");
+      return getTokenSecurity(address, chain);
+    },
     enabled: false, // Disabled - requires premium Birdeye plan
     staleTime: 300_000,
   });
 
   const { data: txs } = useQuery({
     queryKey: ["token-txs", address, chain],
-    queryFn: () => getTokenTxs(address, 20, chain),
-    enabled: isValidAddress && !!overview,
+    queryFn: () => {
+      if (!address) throw new Error("No address");
+      return getTokenTxs(address, 20, chain);
+    },
+    enabled: !!address && isValidAddress && !!overview,
     staleTime: 30_000,
     retry: 1,
   });
@@ -110,8 +106,11 @@ export default function TokenDetailPage({
 
   const { data: ohlcv } = useQuery({
     queryKey: ["token-ohlcv", address, chain, timeRange],
-    queryFn: () => getOHLCV(address, timeRangeConfig.type, timeRangeConfig.from, timeRangeConfig.to, chain),
-    enabled: isValidAddress && !!overview,
+    queryFn: () => {
+      if (!address) throw new Error("No address");
+      return getOHLCV(address, timeRangeConfig.type, timeRangeConfig.from, timeRangeConfig.to, chain);
+    },
+    enabled: !!address && isValidAddress && !!overview,
     staleTime: 60_000,
     retry: 1,
   });
@@ -119,7 +118,7 @@ export default function TokenDetailPage({
   const { data: analysis, isLoading: analysisLoading } = useQuery({
     queryKey: ["token-analysis", address, chain],
     queryFn: async () => {
-      if (!overview) return null;
+      if (!address || !overview) return null;
       return analyzeToken({
         name: overview.name,
         symbol: overview.symbol,
@@ -131,7 +130,7 @@ export default function TokenDetailPage({
         security: security ?? undefined,
       });
     },
-    enabled: isValidAddress && !!overview,
+    enabled: !!address && isValidAddress && !!overview,
     staleTime: 300_000,
     retry: 1,
   });
@@ -144,6 +143,20 @@ export default function TokenDetailPage({
       date: new Date(time * 1000).toLocaleTimeString(),
     }));
   }, [ohlcv]);
+
+  // All hooks called - now safe to do conditional returns
+
+  // Loading state while params are being resolved
+  if (address === null) {
+    return (
+      <AppShell>
+        <div className="glass-card rounded p-8 text-center">
+          <div className="mb-3 inline-block h-8 w-8 animate-spin rounded-full border-2 border-[--color-primary] border-t-transparent" />
+          <p className="font-mono text-xs text-zinc-500">Loading...</p>
+        </div>
+      </AppShell>
+    );
+  }
 
   // Early return for invalid address
   if (!isValidAddress) {
